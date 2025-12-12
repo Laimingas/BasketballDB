@@ -22,7 +22,7 @@ public class Main {
                 System.out.println("1. Registruoti naują žaidėją komandai (ID pasirinkimas su sąrašu)");
                 System.out.println("2. Perkelti žaidėją į kitą komandą (Transakcija)");
                 System.out.println("3. Ieškoti žaidėjo pagal pavardę");
-                System.out.println("4. Pašalinti pasibaigusį kontraktą");
+                System.out.println("4. Nutraukti kontraktą");
                 System.out.println("5. Peržiūrėti žaidėjus konkrečioje komandoje");
                 System.out.println("6. Pridėti žaidėjui kontraktą");
                 System.out.println("7. Peržiūrėti Turnyrinę Lentelę");
