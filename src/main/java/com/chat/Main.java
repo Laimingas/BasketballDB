@@ -1,12 +1,16 @@
 package com.chat;
 
+import io.github.cdimascio.dotenv.Dotenv;
+
 import java.sql.*;
 import java.util.Scanner;
 
 public class Main {
-    private static final String URL = "jdbc:postgresql://localhost:5433/postgres";
-    private static final String USER = "postgres";
-    private static final String PASS = "admin";
+    private static final Dotenv dotenv = Dotenv.load();
+
+    private static final String URL = dotenv.get("DB_URL");
+    private static final String USER = dotenv.get("DB_USER");
+    private static final String PASS = dotenv.get("DB_PASS");
 
     public static void main(String[] args) {
         try (Connection conn = DriverManager.getConnection(URL, USER, PASS)) {
