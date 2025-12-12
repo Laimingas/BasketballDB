@@ -35,7 +35,7 @@ public class Main {
                     case 1: registruotiZaideja(conn, scanner); break;
                     case 2: perkeltiZaideja(conn, scanner); break;
                     case 3: ieskotiZaidejo(conn, scanner); break;
-                    case 4: salintiKontrakta(conn, scanner); break;
+                    case 4: nutrauktiKontrakta(conn, scanner); break;
                     case 5: perziuretiVisusKomandosZaidejus(conn, scanner); break;
                     case 6: pridetiZaidejuiKontrakta(conn, scanner); break;
                     case 0: return;
@@ -95,17 +95,17 @@ public class Main {
                 p2.executeUpdate();
             }
 
-            conn.commit(); // Patvirtiname transakciją
+            conn.commit();
             System.out.println("Žaidėjas sėkmingai perkeltas (Transakcija sėkminga).");
         } catch (SQLException e) {
-            conn.rollback(); // Jei klaida - atšaukiame viską
+            conn.rollback();
             System.out.println("Klaida! Transakcija atšaukta: " + e.getMessage());
         } finally {
             conn.setAutoCommit(true);
         }
     }
 
-    // --- REIKALAVIMAS: Paieška per 2 susijusias lenteles ---
+    // -- Paieška per 2 susijusias lenteles ---
     private static void ieskotiZaidejo(Connection conn, Scanner scanner) throws SQLException {
         System.out.print("Įveskite ieškomą pavardę: ");
         String pav = scanner.next();
@@ -125,17 +125,62 @@ public class Main {
         }
     }
 
-    // --- REIKALAVIMAS: Duomenų trynimas ---
-    private static void salintiKontrakta(Connection conn, Scanner scanner) throws SQLException {
-        System.out.print("Įveskite kontrakto ID, kurį norite anuliuoti: ");
-        int cId = scanner.nextInt();
+    private static void nutrauktiKontrakta(Connection conn, Scanner scanner) throws SQLException {
+        System.out.println("\n--- Kontrakto ir narystės nutraukimas (Istorijos išsaugojimas) ---");
 
-        String sql = "DELETE FROM Kontraktai WHERE kontrakto_id = ?";
-        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, cId);
-            int rows = pstmt.executeUpdate();
-            if (rows > 0) System.out.println("Kontraktas anuliuotas.");
-            else System.out.println("Kontraktas nerastas.");
+        // Parodome visus ŠIUO METU aktyvius žaidėjus ir jų komandas
+        String sqlList = "SELECT z.zaidejo_id, z.vardas, z.pavarde, k.pavadinimas as komanda, k.komandos_id " +
+                "FROM Zaidejai z " +
+                "JOIN Zaidejo_Komanda zk ON z.zaidejo_id = zk.zaidejo_id " +
+                "JOIN Komandos k ON zk.komandos_id = k.komandos_id " +
+                "WHERE zk.pabaiga IS NULL";
+
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sqlList)) {
+            System.out.println("Aktyvūs žaidėjai komandose:");
+            while (rs.next()) {
+                System.out.printf("Žaidėjo ID: %d | %s %s (%s)\n",
+                        rs.getInt("zaidejo_id"), rs.getString("vardas"),
+                        rs.getString("pavarde"), rs.getString("komanda"));
+            }
+        }
+
+        System.out.print("\nĮveskite žaidėjo ID, kurio kontraktą norite nutraukti: ");
+        int zId = scanner.nextInt();
+        System.out.print("Įveskite nutraukimo datą (YYYY-MM-DD): ");
+        String data = scanner.next();
+
+        try {
+            conn.setAutoCommit(false);
+
+            // Atnaujiname Zaidejo_Komanda (nustatome pabaigos datą)
+            String sqlUpdateNaryste = "UPDATE Zaidejo_Komanda SET pabaiga = ? " +
+                    "WHERE zaidejo_id = ? AND pabaiga IS NULL";
+            try (PreparedStatement pstmt1 = conn.prepareStatement(sqlUpdateNaryste)) {
+                pstmt1.setDate(1, java.sql.Date.valueOf(data));
+                pstmt1.setInt(2, zId);
+                int rows1 = pstmt1.executeUpdate();
+                if (rows1 == 0) throw new SQLException("Žaidėjas neturi aktyvios narystės komandoje.");
+            }
+
+            // Atnaujiname Kontraktai lentelę (nustatome kontrakto pabaigą)
+            String sqlUpdateKontraktas = "UPDATE Kontraktai SET kontrakto_pabaiga = ? " +
+                    "WHERE zaidejo_id = ? AND kontrakto_pabaiga > ?";
+            try (PreparedStatement pstmt2 = conn.prepareStatement(sqlUpdateKontraktas)) {
+                pstmt2.setDate(1, java.sql.Date.valueOf(data));
+                pstmt2.setInt(2, zId);
+                pstmt2.setDate(3, java.sql.Date.valueOf(data));
+                pstmt2.executeUpdate();
+            }
+
+            conn.commit();
+            System.out.println("Sėkmingai užfiksuotas kontrakto nutraukimas. Istoriniai duomenys išsaugoti.");
+
+        } catch (SQLException e) {
+            conn.rollback();
+            System.err.println("Klaida nutraukiant kontraktą: " + e.getMessage());
+        } finally {
+            conn.setAutoCommit(true);
         }
     }
 
