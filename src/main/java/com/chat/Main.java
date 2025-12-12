@@ -56,7 +56,7 @@ public class Main {
         String pavarde = scanner.next();
         System.out.print("Žaidėjo gimimo data (formatas YYYY-MM-DD): ");
         String gim_data = scanner.next();
-        System.out.print("Žaidėjo ūgis (metrais): ");
+        System.out.print("Žaidėjo ūgis (cm): ");
         String ugis = scanner.next();
         System.out.print("Žaidėjo svoris: ");
         String svoris = scanner.next();
@@ -67,8 +67,8 @@ public class Main {
             pstmt.setString(1, vardas);
             pstmt.setString(2, pavarde);
             pstmt.setDate(3, Date.valueOf(gim_data));
-            pstmt.setDouble(4, Double.parseDouble(ugis));
-            pstmt.setDouble(5, Double.parseDouble(svoris));
+            pstmt.setInt(4, Integer.parseInt(ugis));
+            pstmt.setInt(5, Integer.parseInt(svoris));
             pstmt.executeUpdate();
             System.out.println("Žaidėjas sėkmingai užregistruotas.");
         }
