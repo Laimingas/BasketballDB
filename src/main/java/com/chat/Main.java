@@ -62,7 +62,7 @@ public class Main {
         String svoris = scanner.next();
 
         // PreparedStatement (Apsauga nuo injekcijų)
-        String sql = "INSERT INTO Zaidejai (vardas, pavarde, gimimo_data, ugis, svoris) VALUES (?, ?, '2000-01-01', 200, 100)";
+        String sql = "INSERT INTO Zaidejai (vardas, pavarde, gimimo_data, ugis, svoris) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, vardas);
             pstmt.setString(2, pavarde);
