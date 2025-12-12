@@ -139,7 +139,7 @@ public class Main {
         }
     }
 
-    private static void perziuretiVisusKomandosZaidejus(Connection conn, Scanner scanner) throws SQLException{
+    private static void perziuretiVisusKomandosZaidejus(Connection conn, Scanner scanner) throws SQLException {
         System.out.println("Esamos komandos:");
         Statement stmt = conn.createStatement();
         ResultSet rs = stmt.executeQuery("SELECT komandos_id, pavadinimas, miestas FROM Komandos");
@@ -150,6 +150,35 @@ public class Main {
         System.out.print("Įveskite pasirinktos komandos ID: ");
         int kId = scanner.nextInt();
         scanner.nextLine();
+
+        String sql = "SELECT z.vardas, z.pavarde, zk.marskineliu_nr, zk.pozicija " +
+                "FROM Zaidejai z " +
+                "JOIN Zaidejo_Komanda zk ON z.zaidejo_id = zk.zaidejo_id " +
+                "WHERE zk.komandos_id = ? AND (zk.pabaiga IS NULL OR zk.pabaiga > CURRENT_DATE) " +
+                "ORDER BY zk.marskineliu_nr";
+
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, kId);
+
+            try (ResultSet rss = pstmt.executeQuery()) {
+                System.out.println("\nŽaidėjų sąrašas:");
+                System.out.println("--------------------------------------------------");
+                boolean rasta = false;
+                while (rss.next()) {
+                    rasta = true;
+                    System.out.printf("#%d | %-10s %-15s | Pozicija: %s\n",
+                            rss.getInt("marskineliu_nr"),
+                            rss.getString("vardas"),
+                            rss.getString("pavarde"),
+                            rss.getString("pozicija"));
+                }
+
+                if (!rasta) {
+                    System.out.println("Ši komanda šiuo metu neturi aktyvių žaidėjų.");
+                }
+                System.out.println("--------------------------------------------------");
+            }
+        }
     }
 
     private static void pridetiZaidejuiKontrakta(Connection conn, Scanner scanner) throws SQLException {
