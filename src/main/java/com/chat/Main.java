@@ -13,7 +13,6 @@ public class Main {
             System.out.println("Prisijungta prie DB!");
             Scanner scanner = new Scanner(System.in);
 
-            // Programos meniu (tekstinė sąsaja)
             while (true) {
                 System.out.println("\n--- Krepšinio Valdymo Sistema ---");
                 System.out.println("1. Registruoti naują žaidėją komandai (ID pasirinkimas su sąrašu)");
@@ -23,7 +22,7 @@ public class Main {
                 System.out.println("0. Išeiti");
 
                 int pasirinkimas = scanner.nextInt();
-                scanner.nextLine(); // išvalyti enter
+                scanner.nextLine();
 
                 switch (pasirinkimas) {
                     case 1: registruotiZaideja(conn, scanner); break;
@@ -55,12 +54,21 @@ public class Main {
         String vardas = scanner.next();
         System.out.print("Žaidėjo pavardė: ");
         String pavarde = scanner.next();
+        System.out.print("Žaidėjo gimimo data (formatas YYYY-MM-DD): ");
+        String gim_data = scanner.next();
+        System.out.print("Žaidėjo ūgis (metrais): ");
+        String ugis = scanner.next();
+        System.out.print("Žaidėjo svoris: ");
+        String svoris = scanner.next();
 
         // PreparedStatement (Apsauga nuo injekcijų)
         String sql = "INSERT INTO Zaidejai (vardas, pavarde, gimimo_data, ugis, svoris) VALUES (?, ?, '2000-01-01', 200, 100)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, vardas);
             pstmt.setString(2, pavarde);
+            pstmt.setDate(3, Date.valueOf(gim_data));
+            pstmt.setDouble(4, Double.parseDouble(ugis));
+            pstmt.setDouble(5, Double.parseDouble(svoris));
             pstmt.executeUpdate();
             System.out.println("Žaidėjas sėkmingai užregistruotas.");
         }
