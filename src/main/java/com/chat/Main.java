@@ -25,6 +25,7 @@ public class Main {
                 System.out.println("4. Pašalinti pasibaigusį kontraktą");
                 System.out.println("5. Peržiūrėti žaidėjus konkrečioje komandoje");
                 System.out.println("6. Pridėti žaidėjui kontraktą");
+                System.out.println("7. Peržiūrėti Turnyrinę Lentelę");
                 System.out.println("0. Išeiti");
 
                 System.out.print("Pasirinkimas: ");
@@ -38,6 +39,7 @@ public class Main {
                     case 4: salintiKontrakta(conn, scanner); break;
                     case 5: perziuretiVisusKomandosZaidejus(conn, scanner); break;
                     case 6: pridetiZaidejuiKontrakta(conn, scanner); break;
+                    case 7: atvaizduotiTurnyrineLentele(conn); break;
                     case 0: return;
                 }
             }
@@ -257,6 +259,69 @@ public class Main {
             System.err.println("Klaida registruojant sutartį. Transakcija atšaukta: " + e.getMessage());
         } finally {
             conn.setAutoCommit(true); // Grąžiname į pradinę būseną
+        }
+    }
+
+
+    private static void atvaizduotiTurnyrineLentele(Connection conn) throws SQLException {
+        System.out.println("\n--- Turnyrinė lentelė ---");
+
+        try (Statement stmt = conn.createStatement()) {
+
+            // 1. Atnaujiname materializuotą vaizdą
+            System.out.println("Atnaujinama turnyrinė lentelė...");
+            // Būtina naudoti dvigubas kabutes aplink vaizdo pavadinimą
+            stmt.executeUpdate("REFRESH MATERIALIZED VIEW \"komandu_turnyrine_lentele\"");
+            System.out.println("Lentelė atnaujinta sėkmingai.");
+
+            // 2. Skaitome duomenis iš atnaujinto vaizdo
+            // PATAISYTA: "tasku_skirtumai" pakeistas į "taskų_skirtumai" su kabutėmis
+            String sql = "SELECT Sezonas, Komanda, Laimejimai, Pralaimejimai, \"taskų_skirtumai\" " +
+                    "FROM \"komandu_turnyrine_lentele\" " +
+                    "ORDER BY Sezonas, Laimejimai DESC, \"taskų_skirtumai\" DESC";
+
+            try (ResultSet rs = stmt.executeQuery(sql)) {
+
+                // 3. Spausdiname rezultatus gražiu formatu
+                System.out.println("\n----------------------------------------------------------------------------------");
+                System.out.printf("| %-10s | %-20s | %-12s | %-12s | %-12s |\n",
+                        "Sezonas", "Komanda", "Laimėjimai", "Pralaimėjimai", "Taškų skirt.");
+                System.out.println("----------------------------------------------------------------------------------");
+
+                String currentSeason = "";
+                boolean rasta = false;
+
+                while (rs.next()) {
+                    rasta = true;
+                    String sezonas = rs.getString("Sezonas");
+                    String komanda = rs.getString("Komanda");
+                    int laim = rs.getInt("Laimejimai");
+                    int pral = rs.getInt("Pralaimejimai");
+
+                    // PATAISYTA: Naudojama teisinga stulpelio etiketė su "ų"
+                    int skirtumas = rs.getInt("taskų_skirtumai");
+
+                    // Atribojimas tarp skirtingų sezonų
+                    if (!sezonas.equals(currentSeason)) {
+                        if (currentSeason.length() > 0) {
+                            System.out.println("|------------|----------------------|--------------|--------------|--------------|");
+                        }
+                        currentSeason = sezonas;
+                    }
+
+                    // Naudojame printf formatavimą (naudojame %+12d, kad būtų + arba - prieš skirtumą)
+                    System.out.printf("| %-10s | %-20s | %-12d | %-12d | %+12d |\n",
+                            sezonas, komanda, laim, pral, skirtumas);
+                }
+
+                if (!rasta) {
+                    System.out.println("| Nėra duomenų turnyrinėje lentelėje.                                            |");
+                }
+                System.out.println("----------------------------------------------------------------------------------");
+            }
+        } catch (SQLException e) {
+            System.err.println("Klaida atnaujinant ar skaitant turnyrinę lentelę. Ar tikrai sukurtas MV \"komandu_turnyrine_lentele\"? " + e.getMessage());
+            throw e;
         }
     }
 }
