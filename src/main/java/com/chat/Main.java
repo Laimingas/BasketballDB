@@ -26,6 +26,7 @@ public class Main {
                 System.out.println("5. Peržiūrėti žaidėjus konkrečioje komandoje");
                 System.out.println("6. Pridėti žaidėjui kontraktą");
                 System.out.println("7. Peržiūrėti Turnyrinę Lentelę");
+                System.out.println("8. Šalinti klaidingą statistiką.");
                 System.out.println("0. Išeiti");
 
                 System.out.print("Pasirinkimas: ");
@@ -33,14 +34,32 @@ public class Main {
                 scanner.nextLine();
 
                 switch (pasirinkimas) {
-                    case 1: registruotiZaideja(conn, scanner); break;
-                    case 2: perkeltiZaideja(conn, scanner); break;
-                    case 3: ieskotiZaidejo(conn, scanner); break;
-                    case 4: nutrauktiKontrakta(conn, scanner); break;
-                    case 5: perziuretiVisusKomandosZaidejus(conn, scanner); break;
-                    case 6: pridetiZaidejuiKontrakta(conn, scanner); break;
-                    case 7: atvaizduotiTurnyrineLentele(conn); break;
-                    case 0: return;
+                    case 1:
+                        registruotiZaideja(conn, scanner);
+                        break;
+                    case 2:
+                        perkeltiZaideja(conn, scanner);
+                        break;
+                    case 3:
+                        ieskotiZaidejo(conn, scanner);
+                        break;
+                    case 4:
+                        nutrauktiKontrakta(conn, scanner);
+                        break;
+                    case 5:
+                        perziuretiVisusKomandosZaidejus(conn, scanner);
+                        break;
+                    case 6:
+                        pridetiZaidejuiKontrakta(conn, scanner);
+                        break;
+                    case 7:
+                        atvaizduotiTurnyrineLentele(conn);
+                        break;
+                    case 8:
+                        salintiKlaidingaStatistika(conn, scanner);
+                        break;
+                    case 0:
+                        return;
                 }
             }
         } catch (SQLException e) {
@@ -367,6 +386,75 @@ public class Main {
         } catch (SQLException e) {
             System.err.println("Klaida atnaujinant ar skaitant turnyrinę lentelę. Ar tikrai sukurtas MV \"komandu_turnyrine_lentele\"? " + e.getMessage());
             throw e;
+        }
+    }
+
+    private static void salintiKlaidingaStatistika(Connection conn, Scanner scanner) throws SQLException {
+        System.out.println("\n--- Klaidingos statistikos trynimas ---");
+
+        // Parodom visas rungtynes
+        String sqlRungtynes =
+                "SELECT r.rungtyniu_id, r.data, k1.pavadinimas as namai, k2.pavadinimas as sveciai " +
+                        "FROM Rungtynes r " +
+                        "JOIN Komandos k1 ON r.namu_komanda = k1.komandos_id " +
+                        "JOIN Komandos k2 ON r.sveciu_komanda = k2.komandos_id " +
+                        "ORDER BY r.data DESC";
+
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sqlRungtynes)) {
+            System.out.println("Galimos rungtynės:");
+            while (rs.next()) {
+                System.out.printf("ID: %d | %s | %s vs %s\n",
+                        rs.getInt("rungtyniu_id"), rs.getDate("data"),
+                        rs.getString("namai"), rs.getString("sveciai"));
+            }
+        }
+
+        System.out.print("\nPasirinkite Rungtynių ID: ");
+        int rId = scanner.nextInt();
+
+        // Isvedam vvisus zaidejus rungtynese
+        String sqlZaidejaiRungtynese =
+                "SELECT z.zaidejo_id, z.vardas, z.pavarde, s.pts " +
+                        "FROM Zaidejo_Statistika s " +
+                        "JOIN Zaidejai z ON s.zaidejo_id = z.zaidejo_id " +
+                        "WHERE s.rungtyniu_id = ?";
+
+        boolean rastaZaideju = false;
+        try (PreparedStatement pstmtZ = conn.prepareStatement(sqlZaidejaiRungtynese)) {
+            pstmtZ.setInt(1, rId);
+            try (ResultSet rsZ = pstmtZ.executeQuery()) {
+                System.out.println("\nŽaidėjai šiose rungtynėse su įvesta statistika:");
+                while (rsZ.next()) {
+                    rastaZaideju = true;
+                    System.out.printf("ID: %d | %s %s (Taškai: %d)\n",
+                            rsZ.getInt("zaidejo_id"), rsZ.getString("vardas"),
+                            rsZ.getString("pavarde"), rsZ.getInt("pts"));
+                }
+            }
+        }
+
+        if (!rastaZaideju) {
+            System.out.println("Šioms rungtynėms statistikos įrašų nėra.");
+            return;
+        }
+
+        System.out.print("\nPasirinkite Žaidėjo ID, kurio statistiką norite ištrinti: ");
+        int zId = scanner.nextInt();
+
+        // Trinam
+        String sqlDelete = "DELETE FROM Zaidejo_Statistika WHERE rungtyniu_id = ? AND zaidejo_id = ?";
+
+        try (PreparedStatement pstmt = conn.prepareStatement(sqlDelete)) {
+            pstmt.setInt(1, rId);
+            pstmt.setInt(2, zId);
+
+            int rows = pstmt.executeUpdate();
+            if (rows > 0) {
+                System.out.println("Statistika sėkmingai pašalinta.");
+            } else {
+                System.out.println("Įrašas nerastas.");
+            }
         }
     }
 }
