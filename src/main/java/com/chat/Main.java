@@ -85,7 +85,7 @@ public class Main {
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, vardas);
             pstmt.setString(2, pavarde);
-            pstmt.setDate(3, Date.valueOf(gim_data));
+            pstmt.setDate(3, java.sql.Date.valueOf(gim_data));
             pstmt.setInt(4, Integer.parseInt(ugis));
             pstmt.setInt(5, Integer.parseInt(svoris));
             pstmt.executeUpdate();
