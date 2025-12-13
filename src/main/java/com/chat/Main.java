@@ -19,14 +19,14 @@ public class Main {
 
             while (true) {
                 System.out.println("\n--- Krepšinio Valdymo Sistema ---");
-                System.out.println("1. Registruoti naują žaidėją komandai (ID pasirinkimas su sąrašu)");
-                System.out.println("2. Perkelti žaidėją į kitą komandą (Transakcija)");
+                System.out.println("1. Registruoti naują žaidėją komandai");
+                System.out.println("2. Perkelti žaidėją į kitą komandą");
                 System.out.println("3. Ieškoti žaidėjo pagal pavardę");
                 System.out.println("4. Nutraukti kontraktą");
                 System.out.println("5. Peržiūrėti žaidėjus konkrečioje komandoje");
                 System.out.println("6. Pridėti žaidėjui kontraktą");
                 System.out.println("7. Peržiūrėti Turnyrinę Lentelę");
-                System.out.println("8. Šalinti klaidingą statistiką.");
+                System.out.println("8. Šalinti klaidingą statistiką");
                 System.out.println("0. Išeiti");
 
                 System.out.print("Pasirinkimas: ");
