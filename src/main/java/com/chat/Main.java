@@ -19,13 +19,14 @@ public class Main {
 
             while (true) {
                 System.out.println("\n--- Krepšinio Valdymo Sistema ---");
-                System.out.println("1. Registruoti naują žaidėją komandai (ID pasirinkimas su sąrašu)");
-                System.out.println("2. Perkelti žaidėją į kitą komandą (Transakcija)");
+                System.out.println("1. Registruoti naują žaidėją komandai");
+                System.out.println("2. Perkelti žaidėją į kitą komandą");
                 System.out.println("3. Ieškoti žaidėjo pagal pavardę");
                 System.out.println("4. Nutraukti kontraktą");
                 System.out.println("5. Peržiūrėti žaidėjus konkrečioje komandoje");
                 System.out.println("6. Pridėti žaidėjui kontraktą");
                 System.out.println("7. Peržiūrėti Turnyrinę Lentelę");
+                System.out.println("8. Šalinti klaidingą statistiką");
                 System.out.println("0. Išeiti");
 
                 System.out.print("Pasirinkimas: ");
@@ -33,14 +34,32 @@ public class Main {
                 scanner.nextLine();
 
                 switch (pasirinkimas) {
-                    case 1: registruotiZaideja(conn, scanner); break;
-                    case 2: perkeltiZaideja(conn, scanner); break;
-                    case 3: ieskotiZaidejo(conn, scanner); break;
-                    case 4: nutrauktiKontrakta(conn, scanner); break;
-                    case 5: perziuretiVisusKomandosZaidejus(conn, scanner); break;
-                    case 6: pridetiZaidejuiKontrakta(conn, scanner); break;
-                    case 7: atvaizduotiTurnyrineLentele(conn); break;
-                    case 0: return;
+                    case 1:
+                        registruotiZaideja(conn, scanner);
+                        break;
+                    case 2:
+                        perkeltiZaideja(conn, scanner);
+                        break;
+                    case 3:
+                        ieskotiZaidejo(conn, scanner);
+                        break;
+                    case 4:
+                        nutrauktiKontrakta(conn, scanner);
+                        break;
+                    case 5:
+                        perziuretiVisusKomandosZaidejus(conn, scanner);
+                        break;
+                    case 6:
+                        pridetiZaidejuiKontrakta(conn, scanner);
+                        break;
+                    case 7:
+                        atvaizduotiTurnyrineLentele(conn);
+                        break;
+                    case 8:
+                        salintiKlaidingaStatistika(conn, scanner);
+                        break;
+                    case 0:
+                        return;
                 }
             }
         } catch (SQLException e) {
@@ -66,7 +85,7 @@ public class Main {
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, vardas);
             pstmt.setString(2, pavarde);
-            pstmt.setDate(3, Date.valueOf(gim_data));
+            pstmt.setDate(3, java.sql.Date.valueOf(gim_data));
             pstmt.setInt(4, Integer.parseInt(ugis));
             pstmt.setInt(5, Integer.parseInt(svoris));
             pstmt.executeUpdate();
@@ -75,8 +94,21 @@ public class Main {
     }
 
     private static void perkeltiZaideja(Connection conn, Scanner scanner) throws SQLException {
+        System.out.print("Esami žaidėjai: ");
+        Statement stmtZaid = conn.createStatement();
+        ResultSet resSet = stmtZaid.executeQuery("SELECT * FROM Zaidejai");
+        while (resSet.next()) {
+            System.out.printf("ID: %d | %s %s %s\n", resSet.getInt("zaidejo_id"), resSet.getString("vardas"), resSet.getString("pavarde"), resSet.getDate("gimimo_data"));
+        }
         System.out.print("Įveskite žaidėjo ID: ");
         int zId = scanner.nextInt();
+
+        System.out.println("Esamos komandos: ");
+        Statement stmt = conn.createStatement();
+        ResultSet rs = stmt.executeQuery("SELECT komandos_id, pavadinimas, miestas FROM Komandos");
+        while (rs.next()) {
+            System.out.printf("ID: %d | %s (%s)\n", rs.getInt("komandos_id"), rs.getString("pavadinimas"), rs.getString("miestas"));
+        }
         System.out.print("Įveskite NAUJOS komandos ID: ");
         int kId = scanner.nextInt();
 
@@ -114,21 +146,33 @@ public class Main {
 
         String sql = "SELECT z.vardas, z.pavarde, k.pavadinimas as komanda " +
                 "FROM Zaidejai z " +
-                "LEFT JOIN Zaidejo_Komanda zk ON z.zaidejo_id = zk.zaidejo_id " +
+                "LEFT JOIN Zaidejo_Komanda zk ON z.zaidejo_id = zk.zaidejo_id AND zk.pabaiga IS NULL " +
                 "LEFT JOIN Komandos k ON zk.komandos_id = k.komandos_id " +
                 "WHERE z.pavarde LIKE ?";
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, "%" + pav + "%");
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                System.out.println(rs.getString("vardas") + " " + rs.getString("pavarde") + " - Komanda: " + rs.getString("komanda"));
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                System.out.println("\nPaieškos rezultatai:");
+                boolean rasta = false;
+                while (rs.next()) {
+                    rasta = true;
+                    String komanda = rs.getString("komanda");
+                    if (komanda == null) {
+                        komanda = "Laisvasis agentas";
+                    }
+                    System.out.println(rs.getString("vardas") + " " + rs.getString("pavarde") + " - " + komanda);
+                }
+                if (!rasta) {
+                    System.out.println("Žaidėjų su tokia pavarde nerasta.");
+                }
             }
         }
     }
 
     private static void nutrauktiKontrakta(Connection conn, Scanner scanner) throws SQLException {
-        System.out.println("\n--- Kontrakto ir narystės nutraukimas (Istorijos išsaugojimas) ---");
+        System.out.println("\n--- Kontrakto nutraukimas ---");
 
         // Parodome visus ŠIUO METU aktyvius žaidėjus ir jų komandas
         String sqlList = "SELECT z.zaidejo_id, z.vardas, z.pavarde, k.pavadinimas as komanda, k.komandos_id " +
@@ -367,6 +411,75 @@ public class Main {
         } catch (SQLException e) {
             System.err.println("Klaida atnaujinant ar skaitant turnyrinę lentelę. Ar tikrai sukurtas MV \"komandu_turnyrine_lentele\"? " + e.getMessage());
             throw e;
+        }
+    }
+
+    private static void salintiKlaidingaStatistika(Connection conn, Scanner scanner) throws SQLException {
+        System.out.println("\n--- Klaidingos statistikos trynimas ---");
+
+        // Parodom visas rungtynes
+        String sqlRungtynes =
+                "SELECT r.rungtyniu_id, r.data, k1.pavadinimas as namai, k2.pavadinimas as sveciai " +
+                        "FROM Rungtynes r " +
+                        "JOIN Komandos k1 ON r.namu_komanda = k1.komandos_id " +
+                        "JOIN Komandos k2 ON r.sveciu_komanda = k2.komandos_id " +
+                        "ORDER BY r.data DESC";
+
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sqlRungtynes)) {
+            System.out.println("Galimos rungtynės:");
+            while (rs.next()) {
+                System.out.printf("ID: %d | %s | %s vs %s\n",
+                        rs.getInt("rungtyniu_id"), rs.getDate("data"),
+                        rs.getString("namai"), rs.getString("sveciai"));
+            }
+        }
+
+        System.out.print("\nPasirinkite Rungtynių ID: ");
+        int rId = scanner.nextInt();
+
+        // Isvedam vvisus zaidejus rungtynese
+        String sqlZaidejaiRungtynese =
+                "SELECT z.zaidejo_id, z.vardas, z.pavarde, s.pts " +
+                        "FROM Zaidejo_Statistika s " +
+                        "JOIN Zaidejai z ON s.zaidejo_id = z.zaidejo_id " +
+                        "WHERE s.rungtyniu_id = ?";
+
+        boolean rastaZaideju = false;
+        try (PreparedStatement pstmtZ = conn.prepareStatement(sqlZaidejaiRungtynese)) {
+            pstmtZ.setInt(1, rId);
+            try (ResultSet rsZ = pstmtZ.executeQuery()) {
+                System.out.println("\nŽaidėjai šiose rungtynėse su įvesta statistika:");
+                while (rsZ.next()) {
+                    rastaZaideju = true;
+                    System.out.printf("ID: %d | %s %s (Taškai: %d)\n",
+                            rsZ.getInt("zaidejo_id"), rsZ.getString("vardas"),
+                            rsZ.getString("pavarde"), rsZ.getInt("pts"));
+                }
+            }
+        }
+
+        if (!rastaZaideju) {
+            System.out.println("Šioms rungtynėms statistikos įrašų nėra.");
+            return;
+        }
+
+        System.out.print("\nPasirinkite Žaidėjo ID, kurio statistiką norite ištrinti: ");
+        int zId = scanner.nextInt();
+
+        // Trinam
+        String sqlDelete = "DELETE FROM Zaidejo_Statistika WHERE rungtyniu_id = ? AND zaidejo_id = ?";
+
+        try (PreparedStatement pstmt = conn.prepareStatement(sqlDelete)) {
+            pstmt.setInt(1, rId);
+            pstmt.setInt(2, zId);
+
+            int rows = pstmt.executeUpdate();
+            if (rows > 0) {
+                System.out.println("Statistika sėkmingai pašalinta.");
+            } else {
+                System.out.println("Įrašas nerastas.");
+            }
         }
     }
 }
