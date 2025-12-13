@@ -94,8 +94,21 @@ public class Main {
     }
 
     private static void perkeltiZaideja(Connection conn, Scanner scanner) throws SQLException {
+        System.out.print("Esami žaidėjai: ");
+        Statement stmtZaid = conn.createStatement();
+        ResultSet resSet = stmtZaid.executeQuery("SELECT * FROM Zaidejai");
+        while (resSet.next()) {
+            System.out.printf("ID: %d | %s %s %s\n", resSet.getInt("zaidejo_id"), resSet.getString("vardas"), resSet.getString("pavarde"), resSet.getDate("gimimo_data"));
+        }
         System.out.print("Įveskite žaidėjo ID: ");
         int zId = scanner.nextInt();
+
+        System.out.println("Esamos komandos: ");
+        Statement stmt = conn.createStatement();
+        ResultSet rs = stmt.executeQuery("SELECT komandos_id, pavadinimas, miestas FROM Komandos");
+        while (rs.next()) {
+            System.out.printf("ID: %d | %s (%s)\n", rs.getInt("komandos_id"), rs.getString("pavadinimas"), rs.getString("miestas"));
+        }
         System.out.print("Įveskite NAUJOS komandos ID: ");
         int kId = scanner.nextInt();
 
@@ -133,21 +146,33 @@ public class Main {
 
         String sql = "SELECT z.vardas, z.pavarde, k.pavadinimas as komanda " +
                 "FROM Zaidejai z " +
-                "LEFT JOIN Zaidejo_Komanda zk ON z.zaidejo_id = zk.zaidejo_id " +
+                "LEFT JOIN Zaidejo_Komanda zk ON z.zaidejo_id = zk.zaidejo_id AND zk.pabaiga IS NULL " +
                 "LEFT JOIN Komandos k ON zk.komandos_id = k.komandos_id " +
                 "WHERE z.pavarde LIKE ?";
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, "%" + pav + "%");
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                System.out.println(rs.getString("vardas") + " " + rs.getString("pavarde") + " - Komanda: " + rs.getString("komanda"));
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                System.out.println("\nPaieškos rezultatai:");
+                boolean rasta = false;
+                while (rs.next()) {
+                    rasta = true;
+                    String komanda = rs.getString("komanda");
+                    if (komanda == null) {
+                        komanda = "Laisvasis agentas";
+                    }
+                    System.out.println(rs.getString("vardas") + " " + rs.getString("pavarde") + " - " + komanda);
+                }
+                if (!rasta) {
+                    System.out.println("Žaidėjų su tokia pavarde nerasta.");
+                }
             }
         }
     }
 
     private static void nutrauktiKontrakta(Connection conn, Scanner scanner) throws SQLException {
-        System.out.println("\n--- Kontrakto ir narystės nutraukimas (Istorijos išsaugojimas) ---");
+        System.out.println("\n--- Kontrakto nutraukimas ---");
 
         // Parodome visus ŠIUO METU aktyvius žaidėjus ir jų komandas
         String sqlList = "SELECT z.zaidejo_id, z.vardas, z.pavarde, k.pavadinimas as komanda, k.komandos_id " +
