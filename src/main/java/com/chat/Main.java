@@ -505,7 +505,7 @@ public class Main {
 
             System.out.println("Esami žaidėjai ir traumos būsena:");
             while (rs.next()) {
-                String statusas = rs.getBoolean("Traumuotas") ? "TRAUMUOTAS 🚑" : "Sveikas ✅";
+                String statusas = rs.getBoolean("Traumuotas") ? "TRAUMUOTAS" : "Sveikas";
                 System.out.printf("ID: %d | %s %s - Būsena: %s\n",
                         rs.getInt("Zaidejo_Id"), rs.getString("Vardas"),
                         rs.getString("Pavarde"), statusas);
@@ -514,7 +514,7 @@ public class Main {
 
         System.out.print("\nĮveskite Žaidėjo ID, kurio būseną norite keisti: ");
         if (!scanner.hasNextInt()) {
-            System.err.println("❌ Klaida: Įvestis turi būti skaičius.");
+            System.err.println("Klaida: Įvestis turi būti skaičius.");
             scanner.nextLine();
             return;
         }
@@ -536,7 +536,7 @@ public class Main {
                 System.out.printf("Žaidėjo ID %d traumos būsena sėkmingai atnaujinta į '%s'.\n",
                         zId, naujasStatusas ? "TRAUMUOTAS" : "SVEIKAS");
             } else {
-                System.err.println("❌ Klaida: Žaidėjas su ID " + zId + " nerastas.");
+                System.err.println("Klaida: Žaidėjas su ID " + zId + " nerastas.");
             }
         }
     }
