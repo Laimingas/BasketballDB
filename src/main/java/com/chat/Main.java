@@ -3,6 +3,7 @@ package com.chat;
 import io.github.cdimascio.dotenv.Dotenv;
 
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.Scanner;
 
 public class Main {
@@ -27,6 +28,9 @@ public class Main {
                 System.out.println("6. Pridėti žaidėjui kontraktą");
                 System.out.println("7. Peržiūrėti Turnyrinę Lentelę");
                 System.out.println("8. Šalinti klaidingą statistiką");
+                System.out.println("9. Atnaujinti žaidėjo traumos būseną");
+                System.out.println("10. Išvesti žaidėjų vidurkius per sezoną");
+                System.out.println("11. Rodyti aktyvius kontraktus");
                 System.out.println("0. Išeiti");
 
                 System.out.print("Pasirinkimas: ");
@@ -57,6 +61,15 @@ public class Main {
                         break;
                     case 8:
                         salintiKlaidingaStatistika(conn, scanner);
+                        break;
+                    case 9:
+                        atnaujintiZaidejoTrauma(conn, scanner);
+                        break;
+                    case 10:
+                        isvestiZaidejuVidurkius(conn);
+                        break;
+                    case 11:
+                        rodyiAktyviusKontraktus(conn);
                         break;
                     case 0:
                         return;
@@ -480,6 +493,129 @@ public class Main {
             } else {
                 System.out.println("Įrašas nerastas.");
             }
+        }
+    }
+
+    private static void atnaujintiZaidejoTrauma(Connection conn, Scanner scanner) throws SQLException {
+        System.out.println("\n--- Žaidėjo Traumos Būsenos Atnaujinimas ---");
+
+        // 1. Išvesti visus žaidėjus ir jų dabartinę traumos būseną
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT Zaidejo_Id, Vardas, Pavarde, Traumuotas FROM Zaidejai ORDER BY Pavarde")) {
+
+            System.out.println("Esami žaidėjai ir traumos būsena:");
+            while (rs.next()) {
+                String statusas = rs.getBoolean("Traumuotas") ? "TRAUMUOTAS" : "Sveikas";
+                System.out.printf("ID: %d | %s %s - Būsena: %s\n",
+                        rs.getInt("Zaidejo_Id"), rs.getString("Vardas"),
+                        rs.getString("Pavarde"), statusas);
+            }
+        }
+
+        System.out.print("\nĮveskite Žaidėjo ID, kurio būseną norite keisti: ");
+        if (!scanner.hasNextInt()) {
+            System.err.println("Klaida: Įvestis turi būti skaičius.");
+            scanner.nextLine();
+            return;
+        }
+        int zId = scanner.nextInt();
+        scanner.nextLine();
+
+        System.out.print("Ar žaidėjas traumuotas? (true/false): ");
+        String input = scanner.nextLine().trim().toLowerCase();
+        boolean naujasStatusas = input.equals("true");
+
+        String sql = "UPDATE Zaidejai SET Traumuotas = ? WHERE Zaidejo_Id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setBoolean(1, naujasStatusas);
+            pstmt.setInt(2, zId);
+
+            int rows = pstmt.executeUpdate();
+
+            if (rows > 0) {
+                System.out.printf("Žaidėjo ID %d traumos būsena sėkmingai atnaujinta į '%s'.\n",
+                        zId, naujasStatusas ? "TRAUMUOTAS" : "SVEIKAS");
+            } else {
+                System.err.println("Klaida: Žaidėjas su ID " + zId + " nerastas.");
+            }
+        }
+    }
+
+    private static void isvestiZaidejuVidurkius(Connection conn) throws SQLException {
+        System.out.println("\n--- Žaidėjų Vidurkiai per Sezoną (PTS, REB, AST) ---");
+
+        String sql = "SELECT * FROM zaideju_vidurkiai_per_sezona ORDER BY Sezonas DESC, PTS_avg DESC";
+
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            System.out.println("----------------------------------------------------------------------------------");
+            System.out.printf("| %-25s | %-10s | %-10s | %-8s | %-8s | %-8s |\n",
+                    "Žaidėjas", "Sezonas", "Rungtynės", "PTS Avg", "REB Avg", "AST Avg");
+            System.out.println("----------------------------------------------------------------------------------");
+
+            boolean rasta = false;
+            while (rs.next()) {
+                rasta = true;
+                System.out.printf("| %-25s | %-10s | %-10d | %-8.2f | %-8.2f | %-8.2f |\n",
+                        rs.getString("Zaidejas"),
+                        rs.getString("Sezonas"),
+                        rs.getInt("Rungtynes"),
+                        rs.getDouble("PTS_avg"),
+                        rs.getDouble("REB_avg"),
+                        rs.getDouble("AST_avg"));
+            }
+
+            if (!rasta) {
+                System.out.println("| Nėra sukauptos statistikos duomenų.                                              |");
+            }
+            System.out.println("----------------------------------------------------------------------------------");
+        }
+    }
+
+    private static void rodyiAktyviusKontraktus(Connection conn) throws SQLException {
+        System.out.println("\n--- Aktyvūs Žaidėjų Kontraktai ---");
+
+        LocalDate currentDate = LocalDate.now();
+
+        String sql = "SELECT k.Kontrakto_Id, z.Vardas, z.Pavarde, kom.Pavadinimas as Komanda, " +
+                "k.Verte, k.Kontrakto_Pradzia, k.Kontrakto_Pabaiga " +
+                "FROM Kontraktai k " +
+                "JOIN Zaidejai z ON k.Zaidejo_Id = z.Zaidejo_Id " +
+                "JOIN Komandos kom ON k.Komandos_Id = kom.Komandos_Id " +
+                "WHERE k.Kontrakto_Pabaiga > CURRENT_DATE " +
+                "ORDER BY k.Kontrakto_Pabaiga";
+
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            // PATAISYTA: Padidintas bendras plotis ir stulpelių plotis
+            System.out.println("----------------------------------------------------------------------------------------------------------------");
+            System.out.printf("| %-4s | %-30s | %-15s | %-12s | %-12s | %-12s |\n",
+                    "ID", "Žaidėjas", "Komanda", "Vertė (M)", "Pradžia", "Pabaiga");
+            System.out.println("----------------------------------------------------------------------------------------------------------------");
+
+            boolean rasta = false;
+            while (rs.next()) {
+                rasta = true;
+                double verteM = rs.getDouble("Verte") / 1000000.0;
+
+                // Naudojame String.format atskirai Žaidėjo vardui, kad būtų galima naudoti ilgą stulpelio plotį
+                String zaidejoVardas = String.format("%s %s", rs.getString("Vardas"), rs.getString("Pavarde"));
+
+                System.out.printf("| %-4d | %-30s | %-15s | %-12.2f | %-12s | %-12s |\n",
+                        rs.getInt("Kontrakto_Id"),
+                        zaidejoVardas, // Dedame jau suformatuotą ilgą vardą
+                        rs.getString("Komanda"),
+                        verteM,
+                        rs.getDate("Kontrakto_Pradzia"),
+                        rs.getDate("Kontrakto_Pabaiga"));
+            }
+
+            if (!rasta) {
+                System.out.println("| Šiuo metu aktyvių sutarčių nėra (visos baigėsi arba buvo nutrauktos).                                         |");
+            }
+            System.out.println("----------------------------------------------------------------------------------------------------------------");
         }
     }
 }
